@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cozy Merge - Match 3 Strategy</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&display=swap');
+
+        body {
+            margin: 0; padding: 0;
+            background: linear-gradient(135deg, #1e1b4b, #312e81);
+            font-family: 'Nunito', sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden;
+            user-select: none; -webkit-user-select: none;
+            color: #fff;
+            touch-action: none; /* Khóa cuộn mặc định trên toàn trang */
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 100%; max-width: 500px;
+            height: 100vh; max-height: 850px;
+            background: #0f172a;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* --- UI BẢNG ĐIỂM & NEXT ITEM (LEFT PANEL) --- */
+        .left-panel {
+            padding: 25px 20px 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 10; width: 100%; box-sizing: border-box;
+        }
+
+        .score-board, .next-preview {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .score-board { padding: 10px 20px; min-width: 100px; }
+        .score-title { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        .score-value { font-size: 2rem; font-weight: 900; color: #facc15; text-shadow: 0 0 15px rgba(250, 204, 21, 0.5); line-height: 1.1; transition: transform 0.15s; }
+        .coin-value { color: #fbbf24; font-size: 1.4rem; margin-top: 2px; text-shadow: 0 0 10px rgba(251, 191, 36, 0.4); }
+
+        .next-preview { padding: 10px 20px; display: flex; flex-direction: column; align-items: center; }
+        .next-item-box {
+            width: 50px; height: 50px; border-radius: 12px; margin-top: 5px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.8rem; box-shadow: inset 0 0 10px rgba(255,255,255,0.2);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* --- CONTAINER CHO CANVAS CHÍNH --- */
+        #canvas-container {
+            flex: 1; width: 100%; display: flex;
+            justify-content: center; align-items: center; overflow: hidden;
+        }
+        #gameCanvas {
+            width: 100%; height: 100%; cursor: pointer;
+        }
+
+        /* --- UI SỰ HỖ TRỢ & ÂM THANH (RIGHT PANEL) --- */
+        .right-panel {
+            position: absolute; bottom: 20px; left: 0; width: 100%;
+            display: flex; justify-content: center; align-items: center;
+            z-index: 90; pointer-events: none;
+        }
+        
+        .supports-bar {
+            display: flex; gap: 15px; pointer-events: auto;
+        }
+        
+        .support-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: white; width: 45px; height: 45px; border-radius: 12px;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; font-size: 1.2rem; position: relative;
+            backdrop-filter: blur(5px); transition: 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .support-btn:hover { background: rgba(255,255,255,0.2); transform: translateY(-3px); }
+        .support-btn.active { 
+            background: rgba(74, 222, 128, 0.4); border: 2px solid #4ade80; 
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.5); transform: scale(1.1); 
+        }
+        .support-btn .badge {
+            position: absolute; top: -8px; right: -8px;
+            background: #ef4444; color: white; font-size: 0.75rem; font-weight: bold;
+            min-width: 18px; padding: 2px 5px; height: 18px; border-radius: 10px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5); white-space: nowrap;
+        }
+
+        #music-toggle {
+            position: absolute; right: 20px; pointer-events: auto;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: white; width: 45px; height: 45px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; font-size: 1.2rem; z-index: 90;
+            backdrop-filter: blur(5px); transition: 0.3s;
+        }
+        #music-toggle:hover { background: rgba(255,255,255,0.2); transform: scale(1.1); }
+
+        /* --- CÁC MÀN HÌNH OVERLAY --- */
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100; text-align: center; padding: 20px;
+            transition: opacity 0.4s ease; box-sizing: border-box;
+        }
+        .hidden { opacity: 0; pointer-events: none; }
+        .overlay h1 {
+            font-size: 3.2rem; margin: 0 0 10px; line-height: 1.1;
+            background: linear-gradient(to right, #facc15, #f97316);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 5px 15px rgba(249, 115, 22, 0.4));
+        }
+        .overlay p { font-size: 1.1rem; color: #cbd5e1; max-width: 90%; line-height: 1.5; margin-bottom: 25px;}
+        .btn {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; border: none; padding: 15px 40px;
+            font-size: 1.2rem; font-weight: 800; border-radius: 30px;
+            cursor: pointer; font-family: 'Nunito', sans-serif;
+            box-shadow: 0 10px 25px rgba(124, 58, 237, 0.5); transition: all 0.2s; margin-bottom: 10px;
+        }
+        .btn:hover { transform: scale(1.08) translateY(-3px); box-shadow: 0 15px 35px rgba(124, 58, 237, 0.7); }
+        .btn:active { transform: scale(0.95); }
+
+        /* Màn hình PC */
+        @media (min-width: 768px) and (orientation: landscape) {
+            #game-wrapper {
+                max-width: 900px; height: 90vh; max-height: 650px; 
+                flex-direction: row; border-radius: 24px; padding: 20px; box-sizing: border-box;
+            }
+            .left-panel {
+                flex-direction: column; justify-content: center; gap: 40px;
+                width: 220px; height: 100%; padding: 0;
+            }
+            #canvas-container { border-radius: 20px; }
+            .right-panel {
+                position: static; flex-direction: column; justify-content: center; gap: 40px;
+                width: 140px; height: 100%; pointer-events: auto;
+            }
+            .supports-bar { flex-direction: column; }
+            #music-toggle { position: static; margin-top: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <audio id="bgMusic" src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" loop preload="auto"></audio>
+        <audio id="sndPlace" src="https://cdn.pixabay.com/audio/2022/03/15/audio_73bb2b43b9.mp3" preload="auto"></audio>
+        <audio id="sndMerge" src="https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3" preload="auto"></audio>
+        
+        <div class="left-panel">
+            <div class="score-board">
+                <div class="score-title">ĐIỂM SỐ</div>
+                <div class="score-value" id="score">0</div>
+                <div style="height: 10px;"></div>
+                <div class="score-title">TIỀN THƯỞNG</div>
+                <div class="coin-value">🪙 <span id="coins">0</span></div>
+            </div>
+            <div class="next-preview">
+                <div class="score-title">TIẾP THEO</div>
+                <div class="next-item-box" id="nextItemBox">🌱</div>
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+
+        <div class="right-panel">
+            <div class="supports-bar">
+                <div class="support-btn" onclick="useSupport(1)" id="sup1" title="Đập 1 ô">🔨<span class="badge" id="badge1">1</span></div>
+                <div class="support-btn" onclick="useSupport(2)" id="sup2" title="Nâng cấp 1 ô">✨<span class="badge" id="badge2">1</span></div>
+                <div class="support-btn" onclick="useSupport(3)" id="sup3" title="Đổi vật phẩm tiếp theo">🔄<span class="badge" id="badge3">3</span></div>
+            </div>
+            <div id="music-toggle" onclick="toggleMusic()">🔊</div>
+        </div>
+
+        <div id="start-screen" class="overlay">
+            <h1>COZY MERGE</h1>
+            <p style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.95rem;">
+                <b>[ LUẬT CHƠI CHIẾN THUẬT ]</b><br><br>
+                Chạm để đặt vật phẩm. Ghép <b>3 ô giống nhau</b> để tiến hóa.<br>
+                Ghép ô tạo ra 🪙 Tiền vàng. Hết quyền trợ giúp? Dùng tiền để mua lại!<br>
+                <i>Mục tiêu: Đạt được Vương Miện (Cấp 6)</i>
+            </p>
+            <button class="btn" onclick="startGame()">Bắt Đầu</button>
+        </div>
+
+        <!-- MÀN HÌNH CHIẾN THẮNG -->
+        <div id="win-screen" class="overlay hidden">
+            <h1 style="background: linear-gradient(to right, #a855f7, #f97316); -webkit-background-clip: text;">XUẤT SẮC!</h1>
+            <p>Bạn đã quy hoạch thành công tạo ra <b>Vương Miện</b> 👑!<br><br>Hãy tiếp tục mở rộng vương quốc để phá kỷ lục điểm số của chính mình nhé.</p>
+            <button class="btn" onclick="continueGame()">Chơi Tiếp Tục</button>
+        </div>
+
+        <div id="game-over-screen" class="overlay hidden">
+            <h1 style="background: linear-gradient(to right, #ef4444, #f97316); -webkit-background-clip: text;">HẾT CHỖ</h1>
+            <p>Quy hoạch không gian thất bại!<br>Điểm của bạn: <span id="finalScore" style="color: #facc15; font-weight: 900; font-size: 1.8rem;">0</span></p>
+            <button class="btn" onclick="resetGame()">Quy Hoạch Lại</button>
+        </div>
+    </div>
+
+    <script>
+        // --- QUẢN LÝ NHẠC ---
+        const bgMusic = document.getElementById('bgMusic');
+        const sndPlace = document.getElementById('sndPlace');
+        const sndMerge = document.getElementById('sndMerge');
+        let isMusicPlaying = false;
+
+        function toggleMusic() {
+            if (isMusicPlaying) {
+                bgMusic.pause();
+                document.getElementById('music-toggle').innerText = "🔇";
+            } else {
+                bgMusic.volume = 0.4;
+                bgMusic.play().catch(e => console.log(e));
+                document.getElementById('music-toggle').innerText = "🔊";
+            }
+            isMusicPlaying = !isMusicPlaying;
+        }
+
+        // --- HỆ THỐNG GRID & CANVAS ENGINE ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let cw, ch;
+        
+        const COLS = 5; 
+        const ROWS = 5;
+        let cellSize = 0;
+        let boardStartX = 0;
+        let boardStartY = 0;
+        const GAP = 12;
+
+        const TIERS = [
+            { id: 0, name: "Trống", emoji: "", color: "transparent", bg: "rgba(255,255,255,0.03)", shadow: "transparent" },
+            { id: 1, name: "Cỏ Non", emoji: "🌱", color: "#4ade80", bg: "rgba(74, 222, 128, 0.15)", shadow: "rgba(74, 222, 128, 0.4)" },
+            { id: 2, name: "Cây Gỗ", emoji: "🌳", color: "#22c55e", bg: "rgba(34, 197, 94, 0.2)", shadow: "rgba(34, 197, 94, 0.5)" },
+            { id: 3, name: "Quầy Cafe", emoji: "☕", color: "#facc15", bg: "rgba(250, 204, 21, 0.2)", shadow: "rgba(250, 204, 21, 0.6)" },
+            { id: 4, name: "Tiệm Bánh", emoji: "🥐", color: "#f97316", bg: "rgba(249, 115, 22, 0.25)", shadow: "rgba(249, 115, 22, 0.7)" },
+            { id: 5, name: "Lâu Đài", emoji: "🏰", color: "#a855f7", bg: "rgba(168, 85, 247, 0.3)", shadow: "rgba(168, 85, 247, 0.8)" },
+            { id: 6, name: "Vương Miện", emoji: "👑", color: "#ef4444", bg: "rgba(239, 68, 68, 0.35)", shadow: "rgba(239, 68, 68, 0.9)" }
+        ];
+
+        let board = [];
+        let animations = []; 
+        let particles = [];
+        let floatingTexts = [];
+        let score = 0;
+        let coins = 0;
+        let nextItemId = 1;
+        let highestTier = 2; // Lưu cấp cao nhất đạt được
+        let isProcessing = false; 
+        let shakeTime = 0;
+        let hasWon = false;
+
+        // Trợ giúp: Count (sẵn có), Cost (giá mua thêm), Limit (số lần được phép mua thêm mỗi ván)
+        let supportCounts = { 1: 1, 2: 1, 3: 3 }; 
+        let supportCosts = { 1: 50, 2: 80, 3: 20 }; 
+        let supportBuyLimits = { 1: 3, 2: 3, 3: 5 }; 
+        let activeSupport = 0; 
+
+        function resize() {
+            cw = canvas.parentElement.clientWidth;
+            ch = canvas.parentElement.clientHeight;
+            canvas.width = cw;
+            canvas.height = ch;
+
+            let maxGridWidth = cw - 40;
+            let maxGridHeight = ch - 40;
+            let totalGapW = GAP * (COLS - 1);
+            let totalGapH = GAP * (ROWS - 1);
+
+            cellSize = Math.min((maxGridWidth - totalGapW) / COLS, (maxGridHeight - totalGapH) / ROWS);
+            let gridW = cellSize * COLS + totalGapW;
+            let gridH = cellSize * ROWS + totalGapH;
+
+            boardStartX = (cw - gridW) / 2;
+            boardStartY = (ch - gridH) / 2; 
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function initBoard() {
+            board = [];
+            animations = [];
+            for (let x = 0; x < COLS; x++) {
+                board[x] = [];
+                animations[x] = [];
+                for (let y = 0; y < ROWS; y++) {
+                    board[x][y] = 0;
+                    animations[x][y] = { scale: 1 };
+                }
+            }
+        }
+
+        function generateNextItem(isReroll = false) {
+            if (isReroll) {
+                // Reroll thông minh: rớt các vật phẩm đã mở khóa (tối đa rớt cấp 4)
+                let maxDropTier = Math.min(highestTier - 1, 4);
+                if (maxDropTier < 2) maxDropTier = 2; // Reroll bét nhất ra cấp 1 hoặc 2
+                nextItemId = Math.floor(Math.random() * maxDropTier) + 1;
+            } else {
+                // Rớt tự nhiên: Cấp 1 (75%), Cấp 2 (25%)
+                let rand = Math.random();
+                nextItemId = rand < 0.75 ? 1 : 2;
+            }
+            
+            let box = document.getElementById('nextItemBox');
+            box.innerText = TIERS[nextItemId].emoji;
+            box.style.background = TIERS[nextItemId].bg;
+            box.style.border = `2px solid ${TIERS[nextItemId].color}`;
+            box.style.transform = 'scale(0.5)';
+            setTimeout(() => box.style.transform = 'scale(1)', 50);
+        }
+
+        function updateCoinsUI() {
+            document.getElementById('coins').innerText = coins;
+            updateSupportUI();
+        }
+
+        function updateSupportUI() {
+            for(let i=1; i<=3; i++) {
+                let btn = document.getElementById('sup'+i);
+                let badge = document.getElementById('badge'+i);
+                
+                if (supportCounts[i] > 0) {
+                    // Còn số lượng miễn phí
+                    badge.innerText = supportCounts[i];
+                    badge.style.background = '#ef4444'; // Đỏ
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'auto';
+                } else if (supportBuyLimits[i] > 0) {
+                    // Hết nhưng còn lượt mua
+                    badge.innerText = `🪙${supportCosts[i]}`;
+                    badge.style.background = '#eab308'; // Vàng shop
+                    
+                    if (coins >= supportCosts[i]) {
+                        btn.style.opacity = '1';
+                        btn.style.pointerEvents = 'auto';
+                    } else {
+                        btn.style.opacity = '0.4';
+                        btn.style.pointerEvents = 'none';
+                    }
+                } else {
+                    // Max mua
+                    badge.innerText = "MAX";
+                    badge.style.background = '#64748b'; // Xám
+                    btn.style.opacity = '0.3';
+                    btn.style.pointerEvents = 'none';
+                    if (activeSupport === i) activeSupport = 0;
+                }
+                
+                if (activeSupport === i) btn.classList.add('active');
+                else btn.classList.remove('active');
+            }
+        }
+
+        function useSupport(type) {
+            if (isProcessing) return;
+            
+            // Xử lý hệ thống Shop in-game mua bằng coin nếu hết count
+            if (supportCounts[type] <= 0) {
+                if (supportBuyLimits[type] > 0 && coins >= supportCosts[type]) {
+                    // Thực hiện giao dịch
+                    coins -= supportCosts[type];
+                    supportBuyLimits[type]--;
+                    supportCounts[type]++;
+                    updateCoinsUI();
+                    
+                    // Phát âm thanh mua hàng nếu có
+                    if(isMusicPlaying) { sndPlace.currentTime = 0; sndPlace.play().catch(e=>{}); }
+                } else {
+                    return; // Không đủ tiền hoặc hết giới hạn
+                }
+            }
+
+            if (type === 3) {
+                generateNextItem(true); // Reroll đặc biệt
+                supportCounts[3]--;
+                updateSupportUI();
+                return;
+            }
+
+            if (activeSupport === type) {
+                activeSupport = 0;
+            } else {
+                activeSupport = type;
+            }
+            updateSupportUI();
+        }
+
+        function updateScore(points, x, y, matchesCount, currentId) {
+            score += points;
+            
+            // Tính toán thưởng tiền: ghép bao nhiêu ô x cấp độ ô đó
+            let earnedCoins = matchesCount * currentId;
+            coins += earnedCoins;
+
+            document.getElementById('score').innerText = score;
+            document.getElementById('score').style.transform = 'scale(1.4)';
+            setTimeout(() => document.getElementById('score').style.transform = 'scale(1)', 150);
+
+            updateCoinsUI();
+
+            // Hiệu ứng chữ nổi: Điểm
+            floatingTexts.push({
+                x: boardStartX + x * (cellSize + GAP) + cellSize/2,
+                y: boardStartY + y * (cellSize + GAP) + cellSize/2 - 15,
+                text: `+${points}`,
+                color: '#facc15',
+                alpha: 1,
+                vy: -2
+            });
+
+            // Hiệu ứng chữ nổi: Coin
+            floatingTexts.push({
+                x: boardStartX + x * (cellSize + GAP) + cellSize/2,
+                y: boardStartY + y * (cellSize + GAP) + cellSize/2 + 15,
+                text: `+🪙${earnedCoins}`,
+                color: '#fbbf24',
+                alpha: 1,
+                vy: -1.5
+            });
+        }
+
+        function getMatches(startX, startY, targetId) {
+            let visited = new Set();
+            let matches = [];
+
+            function dfs(x, y) {
+                if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+                let key = `${x},${y}`;
+                if (visited.has(key)) return;
+                if (board[x][y] !== targetId) return;
+
+                visited.add(key);
+                matches.push({x, y});
+
+                dfs(x + 1, y);
+                dfs(x - 1, y);
+                dfs(x, y + 1);
+                dfs(x, y - 1);
+            }
+
+            dfs(startX, startY);
+            return matches;
+        }
+
+        async function processMerge(x, y) {
+            isProcessing = true;
+            let currentId = board[x][y];
+            let matches = getMatches(x, y, currentId);
+
+            if (matches.length >= 3) {
+                shakeTime = 8;
+                sndMerge.volume = 0.5;
+                sndMerge.currentTime = 0;
+                sndMerge.play().catch(e=>{});
+
+                for (let m of matches) {
+                    if (m.x !== x || m.y !== y) {
+                        board[m.x][m.y] = 0;
+                        createParticles(m.x, m.y, TIERS[currentId].color);
+                    }
+                }
+
+                let nextLevel = currentId + 1;
+                if(nextLevel >= TIERS.length) nextLevel = TIERS.length - 1; 
+                
+                // Mở khóa cấp độ mới
+                if(nextLevel > highestTier) highestTier = nextLevel;
+
+                board[x][y] = nextLevel;
+                animations[x][y].scale = 1.6; 
+
+                let points = matches.length * 10 * currentId;
+                updateScore(points, x, y, matches.length, currentId);
+                createParticles(x, y, TIERS[nextLevel].color, true);
+
+                // Check WIN Condition
+                if (nextLevel === 6 && !hasWon) {
+                    hasWon = true;
+                    setTimeout(() => {
+                        document.getElementById('win-screen').classList.remove('hidden');
+                    }, 500);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 350));
+                await processMerge(x, y); 
+            } else {
+                checkGameOver();
+            }
+            isProcessing = false;
+        }
+
+        function checkGameOver() {
+            let isFull = true;
+            for(let x=0; x<COLS; x++) {
+                for(let y=0; y<ROWS; y++) {
+                    if(board[x][y] === 0) { isFull = false; break; }
+                }
+            }
+            if(isFull) {
+                document.getElementById('finalScore').innerText = score;
+                document.getElementById('game-over-screen').classList.remove('hidden');
+            }
+        }
+
+        // --- HỖ TRỢ CHẠM (TOUCH) VÀ CHUỘT ---
+        function handleInteraction(clientX, clientY) {
+            if(isProcessing || !document.getElementById('start-screen').classList.contains('hidden') || 
+               !document.getElementById('game-over-screen').classList.contains('hidden') ||
+               !document.getElementById('win-screen').classList.contains('hidden')) return;
+
+            let rect = canvas.getBoundingClientRect();
+            let mouseX = clientX - rect.left;
+            let mouseY = clientY - rect.top;
+
+            let gridX = Math.floor((mouseX - boardStartX) / (cellSize + GAP));
+            let gridY = Math.floor((mouseY - boardStartY) / (cellSize + GAP));
+
+            if (gridX >= 0 && gridX < COLS && gridY >= 0 && gridY < ROWS) {
+                let cellLeft = boardStartX + gridX * (cellSize + GAP);
+                let cellTop = boardStartY + gridY * (cellSize + GAP);
+                if (mouseX >= cellLeft && mouseX <= cellLeft + cellSize && mouseY >= cellTop && mouseY <= cellTop + cellSize) {
+                    
+                    if (activeSupport > 0) {
+                        if (board[gridX][gridY] > 0) {
+                            if (activeSupport === 1) { 
+                                board[gridX][gridY] = 0;
+                                createParticles(gridX, gridY, "#ef4444", true);
+                                if(isMusicPlaying) { sndPlace.currentTime = 0; sndPlace.play().catch(e=>{}); }
+                                supportCounts[1]--;
+                                activeSupport = 0;
+                                updateSupportUI();
+                            } else if (activeSupport === 2) { 
+                                let currentId = board[gridX][gridY];
+                                if (currentId < TIERS.length - 1) {
+                                    board[gridX][gridY]++;
+                                    if(board[gridX][gridY] > highestTier) highestTier = board[gridX][gridY];
+
+                                    createParticles(gridX, gridY, TIERS[currentId+1].color, true);
+                                    animations[gridX][gridY].scale = 1.5;
+                                    if(isMusicPlaying) { sndMerge.currentTime = 0; sndMerge.play().catch(e=>{}); }
+                                    supportCounts[2]--;
+                                    activeSupport = 0;
+                                    updateSupportUI();
+                                    
+                                    if (board[gridX][gridY] === 6 && !hasWon) {
+                                        hasWon = true;
+                                        setTimeout(() => document.getElementById('win-screen').classList.remove('hidden'), 500);
+                                    }
+                                    processMerge(gridX, gridY); 
+                                }
+                            }
+                        }
+                        return; 
+                    }
+
+                    if (board[gridX][gridY] === 0) {
+                        sndPlace.volume = 0.5;
+                        sndPlace.currentTime = 0;
+                        sndPlace.play().catch(e=>{});
+
+                        board[gridX][gridY] = nextItemId;
+                        animations[gridX][gridY].scale = 0.2; 
+                        
+                        generateNextItem();
+                        processMerge(gridX, gridY);
+
+                        if(!isMusicPlaying) toggleMusic();
+                    }
+                }
+            }
+        }
+
+        // Tối ưu Touch cho di động (tránh cuộn)
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            let touch = e.touches[0];
+            handleInteraction(touch.clientX, touch.clientY);
+        }, {passive: false});
+
+        canvas.addEventListener('mousedown', (e) => {
+            handleInteraction(e.clientX, e.clientY);
+        });
+
+        function createParticles(x, y, color, isSuper = false) {
+            let count = isSuper ? 30 : 15;
+            let px = boardStartX + x * (cellSize + GAP) + cellSize/2;
+            let py = boardStartY + y * (cellSize + GAP) + cellSize/2;
+
+            for(let i=0; i<count; i++) {
+                particles.push({
+                    x: px, y: py,
+                    vx: (Math.random() - 0.5) * (isSuper ? 12 : 8),
+                    vy: (Math.random() - 0.5) * (isSuper ? 12 : 8),
+                    life: 1,
+                    size: Math.random() * 5 + 3,
+                    color: color
+                });
+            }
+        }
+
+        function drawRoundedRect(x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        }
+
+        function gameLoop() {
+            ctx.save();
+            
+            if(shakeTime > 0) {
+                let dx = (Math.random() - 0.5) * 6;
+                let dy = (Math.random() - 0.5) * 6;
+                ctx.translate(dx, dy);
+                shakeTime--;
+            }
+
+            ctx.clearRect(0, 0, cw, ch);
+
+            for (let x = 0; x < COLS; x++) {
+                for (let y = 0; y < ROWS; y++) {
+                    let cx = boardStartX + x * (cellSize + GAP);
+                    let cy = boardStartY + y * (cellSize + GAP);
+                    let id = board[x][y];
+                    let tier = TIERS[id];
+
+                    animations[x][y].scale += (1 - animations[x][y].scale) * 0.2;
+                    let sc = animations[x][y].scale;
+
+                    ctx.save();
+                    ctx.translate(cx + cellSize/2, cy + cellSize/2);
+                    ctx.scale(sc, sc);
+
+                    ctx.fillStyle = tier.bg;
+                    ctx.shadowBlur = id === 0 ? 0 : 20;
+                    ctx.shadowColor = tier.shadow;
+                    drawRoundedRect(-cellSize/2, -cellSize/2, cellSize, cellSize, 16);
+                    ctx.fill();
+
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = id === 0 ? "rgba(255,255,255,0.05)" : tier.color;
+                    ctx.stroke();
+
+                    if (id > 0) {
+                        ctx.shadowBlur = 0;
+                        ctx.font = `${cellSize * 0.55}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(tier.emoji, 0, cellSize * 0.05); 
+                    }
+
+                    ctx.restore();
+                }
+            }
+
+            for(let i=0; i<particles.length; i++) {
+                let p = particles[i];
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.shadowBlur = 10; ctx.shadowColor = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                p.x += p.vx; p.y += p.vy; 
+                p.vy += 0.2; 
+                p.life -= 0.03; p.size *= 0.95;
+                if(p.life <= 0) { particles.splice(i, 1); i--; }
+            }
+            ctx.globalAlpha = 1;
+
+            for(let i=0; i<floatingTexts.length; i++) {
+                let ft = floatingTexts[i];
+                ctx.globalAlpha = ft.alpha;
+                ctx.fillStyle = ft.color || '#facc15';
+                ctx.font = '900 24px Nunito';
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 10; ctx.shadowColor = '#000';
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.shadowBlur = 0;
+                
+                ft.y += ft.vy;
+                ft.alpha -= 0.02;
+                if(ft.alpha <= 0) { floatingTexts.splice(i, 1); i--; }
+            }
+            ctx.globalAlpha = 1;
+
+            ctx.restore();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            score = 0;
+            coins = 0; 
+            highestTier = 2;
+            hasWon = false;
+            document.getElementById('score').innerText = score;
+            
+            supportCounts = { 1: 1, 2: 1, 3: 3 }; 
+            supportBuyLimits = { 1: 3, 2: 3, 3: 5 }; 
+            activeSupport = 0;
+            updateCoinsUI();
+
+            initBoard();
+            generateNextItem();
+            
+            // Map demo ban đầu
+            board[1][2] = 1; board[3][2] = 1;
+            board[2][4] = 2;
+            
+            setTimeout(() => { resize(); }, 100);
+        }
+
+        function resetGame() {
+            document.getElementById('game-over-screen').classList.add('hidden');
+            startGame();
+        }
+
+        function continueGame() {
+            document.getElementById('win-screen').classList.add('hidden');
+        }
+
+        initBoard();
+        gameLoop();
+    </script>
+</body>
+</html>
