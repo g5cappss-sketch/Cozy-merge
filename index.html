@@ -134,6 +134,25 @@
         .btn:hover { transform: scale(1.08) translateY(-3px); box-shadow: 0 15px 35px rgba(124, 58, 237, 0.7); }
         .btn:active { transform: scale(0.95); }
 
+        /* --- STYLE CHO ICON APP (MỚI THÊM) --- */
+        .app-store-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 22.5%; /* Tỷ lệ bo góc chuẩn của iOS/Android App */
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 
+                        inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+            display: inline-block;
+            background: #1e293b;
+            margin-bottom: 20px; /* Cách một chút so với Tên Game */
+        }
+        .app-store-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            image-rendering: pixelated; /* Giữ độ sắc nét cho ảnh pixel art */
+        }
+
         /* Màn hình PC */
         @media (min-width: 768px) and (orientation: landscape) {
             #game-wrapper {
@@ -188,7 +207,16 @@
             <div id="music-toggle" onclick="toggleMusic()">🔊</div>
         </div>
 
+        <!-- MÀN HÌNH CHÍNH (START SCREEN) CÓ CHỨA ICON APP -->
         <div id="start-screen" class="overlay">
+            
+            <!-- KHU VỰC HIỂN THỊ ICON GAME -->
+            <div class="app-store-icon">
+                <!-- Thay link ảnh trong src="" bằng đường dẫn ảnh/icon của bạn -->
+                <!-- Ví dụ: src="./images/game-icon.png" -->
+               <img src="my-icon.png" alt="Game Icon">
+            </div>
+
             <h1>COZY MERGE</h1>
             <p style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.95rem;">
                 <b>[ LUẬT CHƠI CHIẾN THUẬT ]</b><br><br>
